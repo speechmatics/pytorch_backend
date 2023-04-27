@@ -109,7 +109,10 @@ class ModelState : public BackendModel {
   bool EnabledCacheCleaning() { return enable_cache_cleaning_; }
 
   bool EnabledWeightSharing() { return enable_weight_sharing_; }
-  const std::map<std::string, std::pair<int64_t, int64_t>>& ModelOutputs() { return model_outputs_; }
+  const std::map<std::string, std::pair<int64_t, int64_t>>& ModelOutputs()
+  {
+    return model_outputs_;
+  }
 
  private:
   ModelState(TRITONBACKEND_Model* triton_model);
@@ -538,8 +541,7 @@ class ModelInstanceState : public BackendModelInstance {
       const std::string& control_kind, bool required, bool* have_control);
   void AddInputToMap(
       NamingConvention naming_convention, 
-      const std::vector<std::string> allowed_inputs, 
-      const std::string &io_name,
+      const std::vector<std::string> allowed_inputs, const std::string& io_name,
       const uint32_t index);
   TRITONSERVER_Error* ValidateInputs(const size_t expected_input_cnt);
   void AddInputToMap(
@@ -812,7 +814,12 @@ ModelInstanceState::ValidateTypedSequenceControl(
 
   return nullptr;  // success
 }
-void ModelInstanceState::AddInputToMap(NamingConvention naming_convention, const std::vector<std::string> allowed_inputs, const std::string &io_name, const uint32_t index) {
+void
+ModelInstanceState::AddInputToMap(
+    NamingConvention naming_convention,
+    const std::vector<std::string> allowed_inputs, const std::string& io_name,
+    const uint32_t index)
+{
    std::string deliminator = "__";
 
    if (is_dict_input_) {
@@ -1006,7 +1013,7 @@ ModelInstanceState::ValidateInputs(const size_t expected_input_cnt)
   }
   triton::common::TritonJson::Value sequence_batching;
   if (model_state_->ModelConfig().Find(
-          "sequence_batching", &sequence_batching)){
+          "sequence_batching", &sequence_batching)) {
     triton::common::TritonJson::Value states;
     if (sequence_batching.Find("state", &states)) {
       for (size_t i = 0; i < states.ArraySize(); i++) {
@@ -1023,8 +1030,8 @@ ModelInstanceState::ValidateInputs(const size_t expected_input_cnt)
         if (!pr.first && (state_dtype != "TYPE_STRING")) {
           return TRITONSERVER_ErrorNew(
               TRITONSERVER_ERROR_INTERNAL,
-              ("unsupported datatype " + state_dtype + " for input state '" + state_name +
-              "' for model '" + model_state_->Name() + "'")
+              ("unsupported datatype " + state_dtype + " for input state '" +
+               state_name + "' for model '" + model_state_->Name() + "'")
                   .c_str());
         }
 
@@ -1035,10 +1042,11 @@ ModelInstanceState::ValidateInputs(const size_t expected_input_cnt)
           if ((dims.size() + (supports_batching_ ? 1 : 0)) > 1) {
             return TRITONSERVER_ErrorNew(
                 TRITONSERVER_ERROR_INTERNAL,
-                ("Triton only supports 1 dimensional List of String as input for "
+                ("Triton only supports 1 dimensional List of String as input "
+                 "for "
                 "'" +
-                std::string(state_name) + "' for model '" + model_state_->Name() +
-                "'")
+                 std::string(state_name) + "' for model '" +
+                 model_state_->Name() + "'")
                     .c_str());
           }
         }
@@ -1162,8 +1170,8 @@ ModelInstanceState::ValidateOutputs()
         if (!pr.first && (state_dtype != "TYPE_STRING")) {
           return TRITONSERVER_ErrorNew(
               TRITONSERVER_ERROR_INTERNAL,
-              ("unsupported datatype " + state_dtype + " for state '" + state_name +
-              "' for model '" + model_state_->Name() + "'")
+              ("unsupported datatype " + state_dtype + " for state '" +
+               state_name + "' for model '" + model_state_->Name() + "'")
                   .c_str());
         }
 
@@ -1172,10 +1180,11 @@ ModelInstanceState::ValidateOutputs()
           if ((dims.size() + (supports_batching_ ? 1 : 0)) > 1) {
             return TRITONSERVER_ErrorNew(
                 TRITONSERVER_ERROR_INTERNAL,
-                ("Triton only supports 1 dimensional List of String as output for "
+                ("Triton only supports 1 dimensional List of String as output "
+                 "for "
                 "'" +
-                std::string(state_name) + "' for model '" + model_state_->Name() +
-                "'")
+                 std::string(state_name) + "' for model '" +
+                 model_state_->Name() + "'")
                     .c_str());
           }
         }
@@ -1678,7 +1687,8 @@ ModelInstanceState::GetNamingConvention(
   }
 
   triton::common::TritonJson::Value sequence_batching;
-  if (model_state_->ModelConfig().Find("sequence_batching", &sequence_batching)) {
+  if (model_state_->ModelConfig().Find(
+          "sequence_batching", &sequence_batching)) {
     // If we need to manage state for the model, then we need to check
     // the naming of the state adheres to both the input and output conventions
     triton::common::TritonJson::Value states;
@@ -1696,16 +1706,17 @@ ModelInstanceState::GetNamingConvention(
     for (size_t i = 0; i < states.ArraySize(); i++) {
       triton::common::TritonJson::Value state;
       RETURN_IF_ERROR(states.IndexAsObject(i, &state));
-      std::string name_entry = io_kind == "input" ? "input_name" : "output_name";
+      std::string name_entry =
+          io_kind == "input" ? "input_name" : "output_name";
       std::string state_name;
-      RETURN_IF_ERROR(
-          state.MemberAsString(name_entry.c_str(), &state_name));
+      RETURN_IF_ERROR(state.MemberAsString(name_entry.c_str(), &state_name));
       int start_pos = state_name.find(deliminator);
       if (start_pos == -1) {
         return TRITONSERVER_ErrorNew(
             TRITONSERVER_ERROR_INVALID_ARG,
             ("PyTorch model '" + model_state_->Name() +
-              "' is using sequence batching with state but state '" + state_name + 
+             "' is using sequence batching with state but state '" +
+             state_name +
               "' does not follow the <name>__<index> naming convention. ")
                 .c_str());
       } else {
@@ -1721,7 +1732,8 @@ ModelInstanceState::GetNamingConvention(
             return TRITONSERVER_ErrorNew(
             TRITONSERVER_ERROR_INVALID_ARG,
             ("PyTorch model '" + model_state_->Name() +
-             "' is using sequence batching with state but state '" + state_name + 
+               "' is using sequence batching with state but state '" +
+               state_name +
              "' does not follow the <name>__<index> naming convention. ")
                 .c_str());
         }
@@ -1912,8 +1924,9 @@ SetStringInputTensor(
 bool
 SetStringBuffer(
     torch::List<torch::jit::IValue>* tensor, TRITONBACKEND_Response** response,
-    TRITONBACKEND_Output* response_output, TRITONBACKEND_State* response_state, const size_t tensor_element_count,
-    cudaStream_t stream, std::string* serialized, bool state)
+    TRITONBACKEND_Output* response_output, TRITONBACKEND_State* response_state,
+    const size_t tensor_element_count, cudaStream_t stream,
+    std::string* serialized, bool state)
 {
   bool cuda_copy = false;
 
@@ -1938,7 +1951,7 @@ SetStringBuffer(
   TRITONSERVER_Error* err;
   void* buffer;
 
-  if (!state){
+  if (!state) {
     auto err = TRITONBACKEND_OutputBuffer(
         response_output, &buffer, serialized->size(), &actual_memory_type,
         &actual_memory_type_id);
@@ -1984,19 +1997,20 @@ SetStringOutputBuffer(
     TRITONBACKEND_Output* response_output, const size_t tensor_element_count,
     cudaStream_t stream, std::string* serialized)
 {
-  return SetStringBuffer(tensor, response, response_output, nullptr /* response_state */, tensor_element_count,
-                  stream, serialized, false /* state */);
-
+  return SetStringBuffer(
+      tensor, response, response_output, nullptr /* response_state */,
+      tensor_element_count, stream, serialized, false /* state */);
 }
 
 bool
 SetStringStateBuffer(
-    torch::List<torch::jit::IValue>* tensor,  TRITONBACKEND_Response** response,
+    torch::List<torch::jit::IValue>* tensor, TRITONBACKEND_Response** response,
     TRITONBACKEND_State* response_state, const size_t tensor_element_count,
     cudaStream_t stream, std::string* serialized)
 {
-  return SetStringBuffer(tensor, response, nullptr /* response_output */, response_state, tensor_element_count,
-                  stream, serialized, true /* state */);
+  return SetStringBuffer(
+      tensor, response, nullptr /* response_output */, response_state,
+      tensor_element_count, stream, serialized, true /* state */);
 }
 
 
@@ -2063,8 +2077,8 @@ ModelInstanceState::SetInputTensors(
     // The input must be in contiguous CPU/GPU memory.
     std::vector<std::pair<TRITONSERVER_MemoryType, int64_t>> alloc_perference;
     if (device_.is_cpu()) {
-      alloc_perference = {{TRITONSERVER_MEMORY_CPU_PINNED, 0},
-                          {TRITONSERVER_MEMORY_CPU, 0}};
+      alloc_perference = {
+          {TRITONSERVER_MEMORY_CPU_PINNED, 0}, {TRITONSERVER_MEMORY_CPU, 0}};
     } else {
       alloc_perference = {{TRITONSERVER_MEMORY_GPU, device_.index()}};
     }
@@ -2176,7 +2190,7 @@ ModelInstanceState::ReadOutputTensors(
   bool cuda_copy = false;
   // The serialized string buffer must be valid until output copies are done
   std::vector<std::unique_ptr<std::string>> string_buffer;
-  for (auto &output : model_state_->ModelOutputs()) {
+  for (auto& output : model_state_->ModelOutputs()) {
     int op_index = output_index_map_[output.first];
     auto name = output.first;
     auto output_tensor_pair = output.second;
@@ -2239,14 +2253,14 @@ ModelInstanceState::ReadOutputTensors(
         }
       if (output_tensor_pair.first != -1) {
           responder.ProcessTensor(
-              name, output_dtype, batchn_shape, output_buffer,
-              memory_type, memory_id);
+              name, output_dtype, batchn_shape, output_buffer, memory_type,
+              memory_id);
       }
       if (output_tensor_pair.second != -1) {
         std::vector<TRITONBACKEND_State*> states;
         states = responder.ProcessStateTensor(
-            name, output_dtype, batchn_shape, output_buffer,
-            memory_type, memory_id);
+              name, output_dtype, batchn_shape, output_buffer, memory_type,
+              memory_id);
         // Update the states
         for (auto& state : states) {
           RETURN_IF_ERROR(TRITONBACKEND_StateUpdate(state));
@@ -2297,9 +2311,11 @@ ModelInstanceState::ReadOutputTensors(
         }
         if (output_tensor_pair.second != -1) {
           TRITONBACKEND_State* response_state;
-          RESPOND_AND_SET_NULL_IF_ERROR(&response, TRITONBACKEND_StateNew(
-              &response_state, request, name.c_str(), TRITONSERVER_TYPE_BYTES,
-              batchn_shape.data(), batchn_shape.size()));
+          RESPOND_AND_SET_NULL_IF_ERROR(
+              &response, TRITONBACKEND_StateNew(
+                             &response_state, request, name.c_str(),
+                             TRITONSERVER_TYPE_BYTES, batchn_shape.data(),
+                             batchn_shape.size()));
 
           string_buffer.emplace_back(new std::string());
           cuda_copy |= SetStringStateBuffer(
