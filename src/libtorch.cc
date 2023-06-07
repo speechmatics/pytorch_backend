@@ -25,11 +25,6 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdint.h>
-<<<<<<< HEAD
-
-=======
->>>>>>> implicit state management
-#include <cstdint>
 #include <exception>
 
 #include "libtorch_utils.h"
@@ -41,7 +36,6 @@
 #include "triton/backend/backend_output_responder.h"
 #include "triton/common/nvtx.h"
 #include "triton/core/tritonbackend.h"
-#include "triton/core/tritonserver.h"
 
 #ifdef TRITON_PYTORCH_ENABLE_TORCHVISION
 // Suppress warnings in torch headers
@@ -153,7 +147,9 @@ class ModelState : public BackendModel {
       torch_models_;
 
   // model_outputs is a map that contains unique outputs that the model must
-  // provide. In the model configuration, the output in the state configuration
+  // provide. The first pair is the model output index and the second is
+  // the index in the model state, -1 is used if one is not required.
+  // In the model configuration, the output in the state configuration
   // can have intersection with the outputs section of the model. If an output
   // is specified both in the output section and state section, it indicates
   // that the backend must return the output state to the client too.
@@ -539,10 +535,6 @@ class ModelInstanceState : public BackendModelInstance {
   TRITONSERVER_Error* ValidateTypedSequenceControl(
       triton::common::TritonJson::Value& sequence_batching,
       const std::string& control_kind, bool required, bool* have_control);
-  void AddInputToMap(
-      NamingConvention naming_convention, 
-      const std::vector<std::string> allowed_inputs, const std::string& io_name,
-      const uint32_t index);
   TRITONSERVER_Error* ValidateInputs(const size_t expected_input_cnt);
   void AddInputToMap(
       NamingConvention naming_convention,
@@ -814,42 +806,6 @@ ModelInstanceState::ValidateTypedSequenceControl(
 
   return nullptr;  // success
 }
-void
-ModelInstanceState::AddInputToMap(
-    NamingConvention naming_convention,
-    const std::vector<std::string> allowed_inputs, const std::string& io_name,
-    const uint32_t index)
-{
-   std::string deliminator = "__";
-
-   if (is_dict_input_) {
-     // If dictionary, index is irrelevant but we use the map to store the
-     // input names since they are the keys for the dictionary
-     input_index_map_[io_name] = index;
-   } else {
-     switch (naming_convention) {
-       case NamingConvention::FORWARD_ARGUMENT: {
-         auto itr =
-             std::find(allowed_inputs.begin(), allowed_inputs.end(), io_name);
-         if (itr != allowed_inputs.end()) {
-           input_index_map_[io_name] =
-               std::distance(allowed_inputs.begin(), itr);
-         }
-         return;
-       }
-       case NamingConvention::NAMED_INDEX: {
-         int start_pos = io_name.find(deliminator);
-         int ip_index = std::atoi(io_name.substr(start_pos + 2).c_str());
-         input_index_map_[io_name] = ip_index;
-         return;
-       }
-       case NamingConvention::STRICT_CONFIG_ORDERING: {
-         input_index_map_[io_name] = index;
-         return;
-       }
-     }
-   }
- }
 
 void
 ModelInstanceState::AddInputToMap(
@@ -972,10 +928,6 @@ ModelInstanceState::ValidateInputs(const size_t expected_input_cnt)
     std::string io_name;
     RETURN_IF_ERROR(io.MemberAsString("name", &io_name));
     AddInputToMap(naming_convention, allowed_inputs, io_name, i);
-<<<<<<< HEAD
-=======
-
->>>>>>> implicit state management
     // Validate data type
     std::string io_dtype;
     RETURN_IF_ERROR(io.MemberAsString("data_type", &io_dtype));
@@ -1034,7 +986,6 @@ ModelInstanceState::ValidateInputs(const size_t expected_input_cnt)
                state_name + "' for model '" + model_state_->Name() + "'")
                   .c_str());
         }
-
 
         // Validate shape for String inputs. Only allow 1 dimension.
         if (state_dtype == "TYPE_STRING") {
