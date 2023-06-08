@@ -25,6 +25,7 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <stdint.h>
+
 #include <exception>
 
 #include "libtorch_utils.h"
@@ -232,7 +233,9 @@ ModelState::ModelState(TRITONBACKEND_Model* triton_model)
       enable_weight_sharing_(false), enable_tensor_fuser_pair_({false, true}),
       enable_jit_profiling_pair_({false, true}),
       enable_jit_executor_pair_({false, true}),
-      enable_nvfuser_pair_({false, false}) {}
+      enable_nvfuser_pair_({false, false})
+{
+}
 
 TRITONSERVER_Error*
 ModelState::LoadModel(
@@ -995,7 +998,7 @@ ModelInstanceState::ValidateInputs(const size_t expected_input_cnt)
                 TRITONSERVER_ERROR_INTERNAL,
                 ("Triton only supports 1 dimensional List of String as input "
                  "for "
-                "'" +
+                 "'" +
                  std::string(state_name) + "' for model '" +
                  model_state_->Name() + "'")
                     .c_str());
@@ -1133,7 +1136,7 @@ ModelInstanceState::ValidateOutputs()
                 TRITONSERVER_ERROR_INTERNAL,
                 ("Triton only supports 1 dimensional List of String as output "
                  "for "
-                "'" +
+                 "'" +
                  std::string(state_name) + "' for model '" +
                  model_state_->Name() + "'")
                     .c_str());
@@ -1668,7 +1671,7 @@ ModelInstanceState::GetNamingConvention(
             ("PyTorch model '" + model_state_->Name() +
              "' is using sequence batching with state but state '" +
              state_name +
-              "' does not follow the <name>__<index> naming convention. ")
+             "' does not follow the <name>__<index> naming convention. ")
                 .c_str());
       } else {
         // check if the index part of the name is not an integer
@@ -1680,13 +1683,13 @@ ModelInstanceState::GetNamingConvention(
           }
         }
         if (!is_int) {
-            return TRITONSERVER_ErrorNew(
-            TRITONSERVER_ERROR_INVALID_ARG,
-            ("PyTorch model '" + model_state_->Name() +
+          return TRITONSERVER_ErrorNew(
+              TRITONSERVER_ERROR_INVALID_ARG,
+              ("PyTorch model '" + model_state_->Name() +
                "' is using sequence batching with state but state '" +
                state_name +
-             "' does not follow the <name>__<index> naming convention. ")
-                .c_str());
+               "' does not follow the <name>__<index> naming convention. ")
+                  .c_str());
         }
       }
     }
@@ -2202,21 +2205,21 @@ ModelInstanceState::ReadOutputTensors(
                "' is a scalar which is not supported.")
                   .c_str());
         }
-      if (output_tensor_pair.first != -1) {
+        if (output_tensor_pair.first != -1) {
           responder.ProcessTensor(
               name, output_dtype, batchn_shape, output_buffer, memory_type,
               memory_id);
-      }
-      if (output_tensor_pair.second != -1) {
-        std::vector<TRITONBACKEND_State*> states;
-        states = responder.ProcessStateTensor(
+        }
+        if (output_tensor_pair.second != -1) {
+          std::vector<TRITONBACKEND_State*> states;
+          states = responder.ProcessStateTensor(
               name, output_dtype, batchn_shape, output_buffer, memory_type,
               memory_id);
-        // Update the states
-        for (auto& state : states) {
-          RETURN_IF_ERROR(TRITONBACKEND_StateUpdate(state));
+          // Update the states
+          for (auto& state : states) {
+            RETURN_IF_ERROR(TRITONBACKEND_StateUpdate(state));
+          }
         }
-      }
 
       } else {
         responder.ProcessBatchOutput(
@@ -2251,9 +2254,9 @@ ModelInstanceState::ReadOutputTensors(
             TRITONBACKEND_Output* response_output;
             RESPOND_AND_SET_NULL_IF_ERROR(
                 &response, TRITONBACKEND_ResponseOutput(
-                              response, &response_output, name.c_str(),
-                              TRITONSERVER_TYPE_BYTES, batchn_shape.data(),
-                              batchn_shape.size()));
+                               response, &response_output, name.c_str(),
+                               TRITONSERVER_TYPE_BYTES, batchn_shape.data(),
+                               batchn_shape.size()));
             string_buffer.emplace_back(new std::string());
             cuda_copy |= SetStringOutputBuffer(
                 &output_list, &response, response_output, tensor_element_cnt,
