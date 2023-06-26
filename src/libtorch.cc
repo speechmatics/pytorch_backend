@@ -2379,7 +2379,7 @@ ModelInstanceState::ReadOutputTensors(
 
           string_buffer.emplace_back(new std::string());
           cuda_copy |= SetStringStateBuffer(
-              &output_list, &response, response_output, tensor_element_cnt,
+              &output_list, &response, response_state, tensor_element_cnt,
               GetCudaStreamByInstanceKind(), string_buffer.back().get());
         }
       }
