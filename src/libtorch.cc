@@ -1538,7 +1538,8 @@ ModelInstanceState::Execute(
     torch::jit::setGraphExecutorOptimize(
         model_state_->EnabledOptimizedExecution());
 
-    // disable cudnn
+    // disable cudnn, causes strange CUDNN_INTERNAL_ERROR when running multiple models
+    // we don't see performance gains from using it either
     at::globalContext().setUserEnabledCuDNN(false);
 
     // enable/disable inference mode - supersedes NoGradGuard
