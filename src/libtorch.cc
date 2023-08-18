@@ -1538,6 +1538,9 @@ ModelInstanceState::Execute(
     torch::jit::setGraphExecutorOptimize(
         model_state_->EnabledOptimizedExecution());
 
+    // disable cudnn
+    at::globalContext().setUserEnabledCuDNN(false);
+
     // enable/disable inference mode - supersedes NoGradGuard
     torch::InferenceMode infer_guard(model_state_->EnabledInferenceMode());
 
