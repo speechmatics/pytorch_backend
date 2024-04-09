@@ -1300,9 +1300,32 @@ ModelInstanceState::ProcessRequests(
           TRITONBACKEND_RequestInputByIndex(requests[i], 0 /* index */, &input);
       if (err == nullptr) {
         const int64_t* shape;
+        uint32_t dims_count;
+        uint64_t total_byte_size;
+        TRITONSERVER_DataType input_data_type;
+        const char* input_name;
         err = TRITONBACKEND_InputProperties(
-            input, nullptr, nullptr, &shape, nullptr, nullptr, nullptr);
+            input, &input_name, &input_data_type, &shape, &dims_count,
+            &total_byte_size, nullptr);
         total_batch_size += shape[0];
+
+        // const auto dtype_size = elementSize(torch_dtype.second);
+        const uint64_t shape_product = std::accumulate(
+            shape, shape + dims_count, 1, std::multiplies<int64_t>());
+        // do we need to check for overflow?
+        const auto expected_buffer_size =
+            TRITONSERVER_DataTypeByteSize(input_data_type) * shape_product;
+        if (expected_buffer_size != total_byte_size) {
+          err = TRITONSERVER_ErrorNew(
+              TRITONSERVER_ERROR_INTERNAL,
+              std::string(
+                  "input byte size " + std::to_string(total_byte_size) +
+                  " doesn't match the expected byte size " +
+                  std::to_string(expected_buffer_size) + " input '" +
+                  input_name + "' " + " request_idx " + std::to_string(i) +
+                  +" for model '" + Name() + "'")
+                  .c_str());
+        }
       }
       if (err != nullptr) {
         RESPOND_ALL_AND_SET_TRUE_IF_ERROR(
@@ -1538,8 +1561,8 @@ ModelInstanceState::Execute(
     torch::jit::setGraphExecutorOptimize(
         model_state_->EnabledOptimizedExecution());
 
-    // disable cudnn, causes strange CUDNN_INTERNAL_ERROR when running multiple models
-    // we don't see performance gains from using it either
+    // disable cudnn, causes strange CUDNN_INTERNAL_ERROR when running multiple
+    // models we don't see performance gains from using it either
     at::globalContext().setUserEnabledCuDNN(false);
 
     // enable/disable inference mode - supersedes NoGradGuard
@@ -2160,6 +2183,20 @@ ModelInstanceState::SetInputTensors(
 
     // Create Torch tensor
     const auto torch_dtype = ConvertDataTypeToTorchType(input_datatype);
+    const auto dtype_size = elementSize(torch_dtype.second);
+    const int64_t shape_product = std::accumulate(
+        begin(batchn_shape), end(batchn_shape), 1, std::multiplies<int64_t>());
+    // do we need to check for overflow?
+    const auto expected_buffer_size = dtype_size * shape_product;
+
+    RETURN_ERROR_IF_FALSE(
+        batchn_byte_size == expected_buffer_size,
+        TRITONSERVER_ERROR_INVALID_ARG,
+        std::string("input tensor '") + input_name + "' has wrong byte size " +
+            std::to_string(batchn_byte_size) + " vs. expected " +
+            std::to_string(expected_buffer_size));
+
+    // torch_dtype.second.
     torch::TensorOptions options{torch_dtype.second};
     auto updated_options = (memory_type == TRITONSERVER_MEMORY_GPU)
                                ? options.device(torch::kCUDA, device_.index())
